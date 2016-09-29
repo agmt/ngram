@@ -1,10 +1,10 @@
-# -*- coding: utf8 -*- 
+#!/usr/bin/env python3
 import re
 import sys
 import string
 import random
 
-fin = open("gensorteddict_v2.txt","r")
+fin = open("sorteddict.txt","r")
 fout = open("gensorted3grams.txt","w")
 
 n = 0
