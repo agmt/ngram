@@ -55,15 +55,29 @@ uint64_t getLineBegin(uint64_t p)
     }
 }
 
+__attribute__((noinline)) void preCache()
+{
+    const int count = 65536;
+    volatile char *vngrams = ngrams;
+    register char a;
+    for(size_t i = 0; i < count; i++)
+    {
+        size_t pos = ngrams_size*i/count;
+        a = vngrams[pos];
+    }
+    (void)a;
+}
+
 int main()
 {
+    int count;
     int fd = open("gensorted3grams.txt", O_RDONLY|O_LARGEFILE);
     TRY(fd);
     ngrams_size = lseek(fd, 0, SEEK_END);
     ngrams = (char*)mmap(0, ngrams_size, PROT_READ, MAP_SHARED, fd, 0);
     TRY(ngrams);
     TRY(madvise(ngrams, ngrams_size, MADV_RANDOM));
-    
+    preCache();
     for(;;)
     {
         printf("Input your words: ");
@@ -73,13 +87,16 @@ int main()
         rdbuf[strlen(rdbuf)-1] = 0;
         left = 0;
         right = ngrams_size-1;
+        count = 0;
         size_t rdbuf_len = strlen(rdbuf);
         clock_gettime(CLOCK_MONOTONIC, &ts1);
         for(;;)
         {
-            if(left == right)
-                break;
+            count++;
             mid = getLineBegin((left+right)/2);
+        //    printf("%lu %lu\n", mid, (left+right)/2);
+            if(left == mid)
+                break;
             int res = memcmp(&ngrams[mid], rdbuf, rdbuf_len);
             if(res == 0)
                 break;
@@ -89,7 +106,7 @@ int main()
                 left = mid;
         }
         clock_gettime(CLOCK_MONOTONIC, &ts2);
-        printf("Found time=%ld off=%lu  line=%40.40s\n", time_delta(ts1, ts2), mid, &ngrams[mid]);
+        printf("Found c=%d time=%ld off=%lu  line=%40.40s\n", count, time_delta(ts1, ts2), mid, &ngrams[mid]);
         
     }
     printf("See u\n");
