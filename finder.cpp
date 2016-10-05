@@ -62,6 +62,7 @@ int main()
     ngrams_size = lseek(fd, 0, SEEK_END);
     ngrams = (char*)mmap(0, ngrams_size, PROT_READ, MAP_SHARED, fd, 0);
     TRY(ngrams);
+    TRY(madvise(ngrams, ngrams_size, MADV_RANDOM));
     
     for(;;)
     {
@@ -92,7 +93,7 @@ int main()
         
     }
     printf("See u\n");
-    munmap(ngrams, ngrams_size);
-    close(fd);
+    TRY(munmap(ngrams, ngrams_size));
+    TRY(close(fd));
     return 0;
 }
