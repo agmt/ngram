@@ -26,8 +26,7 @@
     }                                                                 \
     } while( 0 )
 
-size_t ngrams_size;
-char *ngrams;
+
 char rdbuf[1024];
 
 uint64_t left, right, mid;
@@ -43,18 +42,6 @@ static inline unsigned long time_delta(const unsigned long t1, const unsigned lo
     return ((t2-t1));
 }
 
-uint64_t getLineBegin(uint64_t p)
-{
-    for(;;)
-    {
-        if(p == 0)
-            return p;
-        if(ngrams[p] == '\n')
-            return p + 1;
-        p--;
-    }
-}
-
 __attribute__((noinline)) void preCache()
 {
     const int count = 65536;
@@ -68,16 +55,47 @@ __attribute__((noinline)) void preCache()
     (void)a;
 }
 
+struct TextFile
+{
+    size_t ngrams_size;
+    char *ngrams;
+    int fd;
+    TextFile(char *name)
+    {
+        fd = open("gensorted3grams.txt", O_RDONLY|O_LARGEFILE);
+        TRY(fd);
+        ngrams_size = lseek(fd, 0, SEEK_END);
+        ngrams = (char*)mmap(0, ngrams_size, PROT_READ, MAP_SHARED, fd, 0);
+        TRY(ngrams);
+        TRY(madvise(ngrams, ngrams_size, MADV_RANDOM));
+        preCache();
+    }
+    
+    ~TextFile()
+    {
+        TRY(munmap(ngrams, ngrams_size));
+        TRY(close(fd));
+    }
+};
+
+uint64_t getLineBegin(uint64_t p)
+{
+    for(;;)
+    {
+        if(p == 0)
+            return p;
+        if(ngrams[p] == '\n')
+            return p + 1;
+        p--;
+    }
+}
+
+
 int main()
 {
     int count;
-    int fd = open("gensorted3grams.txt", O_RDONLY|O_LARGEFILE);
-    TRY(fd);
-    ngrams_size = lseek(fd, 0, SEEK_END);
-    ngrams = (char*)mmap(0, ngrams_size, PROT_READ, MAP_SHARED, fd, 0);
-    TRY(ngrams);
-    TRY(madvise(ngrams, ngrams_size, MADV_RANDOM));
-    preCache();
+    
+    
     for(;;)
     {
         printf("Input your words: ");
@@ -94,7 +112,6 @@ int main()
         {
             count++;
             mid = getLineBegin((left+right)/2);
-        //    printf("%lu %lu\n", mid, (left+right)/2);
             if(left == mid)
                 break;
             int res = memcmp(&ngrams[mid], rdbuf, rdbuf_len);
@@ -110,7 +127,6 @@ int main()
         
     }
     printf("See u\n");
-    TRY(munmap(ngrams, ngrams_size));
-    TRY(close(fd));
+    
     return 0;
 }
